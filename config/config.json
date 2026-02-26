@@ -1,0 +1,5 @@
+{
+    "baseUrl": "https://automationexercise.com",
+    "browser": "chromium",
+    "timeout": 30000
+}
