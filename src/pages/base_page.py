@@ -26,4 +26,9 @@ class BasePage(ABC):
         pass
 
     def __str__(self):
+        """Readable string for humans"""
         return f"{self.__class__.__name__}(url={self.url})"
+
+    def __repr__(self):
+        """Detailed string for debugging"""
+        return f"{self.__class__.__name__}(url='{self.url}')"
