@@ -73,9 +73,11 @@ addopts = [
     "--tb=short",
     "--html=reports/report.html",
     "--self-contained-html",
+    "--alluredir=allure-results",
 ]
 markers = [
     "smoke: Quick smoke tests",
+    "sanity: Sanity checks",
     "regression: Full regression suite",
     "ui: UI tests only",
     "api: API tests only",
