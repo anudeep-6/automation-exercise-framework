@@ -1,0 +1,19 @@
+{
+    "name": "Test User",
+    "email": "testuser_placeholder@example.com",
+    "password": "Test@1234",
+    "title": "Mr",
+    "dob_day": "15",
+    "dob_month": "6",
+    "dob_year": "1995",
+    "first_name": "Test",
+    "last_name": "User",
+    "company": "Test Corp",
+    "address": "123 Test Street",
+    "address2": "",
+    "country": "United States",
+    "state": "California",
+    "city": "Los Angeles",
+    "zipcode": "90001",
+    "mobile": "1234567890"
+}

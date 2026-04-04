@@ -1,174 +1,190 @@
 """
 Pytest configuration and shared fixtures.
 
-This conftest.py provides fixtures that are available to all tests in the framework.
-Fixtures are organized by scope for optimal test performance.
+This conftest.py provides session, module, and class scoped fixtures
+available to all tests in the framework.
 """
 
-from typing import Any, Dict, List
+import logging
 
 import pytest
+from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
 from src.utils.config_reader import ConfigReader
 from src.utils.data_reader import DataReader
+from src.utils.exceptions import ConfigurationException, TestDataException
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="session")
 def config_reader() -> ConfigReader:
-    """
-    Create ConfigReader instance once per test session.
-
-    This fixture creates a ConfigReader object that loads configuration
-    from config.json. The ConfigReader is reused across ALL tests.
+    """Creates ConfigReader once per session.
 
     Returns:
-        ConfigReader: ConfigReader instance with loaded configuration
+        ConfigReader: Loaded and validated config instance.
 
     Raises:
-        FileNotFoundError: If config.json is not found
-        ValueError: If config.json has invalid JSON
+        ConfigurationException: If config file is missing or invalid.
     """
     try:
         reader = ConfigReader()
-        print("\n[SESSION] Config loaded via ConfigReader")
+        logger.info("[SESSION] Config loaded via ConfigReader")
         return reader
-    except (FileNotFoundError, ValueError) as err:
+    except ConfigurationException as err:
         pytest.fail(f"Failed to load config: {err}")
 
 
 @pytest.fixture(scope="session")
-def config(config_reader: ConfigReader) -> Dict[str, Any]:
-    """
-    Get raw config dictionary from ConfigReader.
-
-    This provides backward compatibility - tests can use either:
-    - config_reader (the ConfigReader object with properties)
-    - config (the raw dictionary)
-
-    Args:
-        config_reader: ConfigReader fixture (automatically injected)
-
-    Returns:
-        dict: Raw configuration dictionary
-    """
-    return config_reader._config
-
-
-@pytest.fixture(scope="session")
 def base_url(config_reader: ConfigReader) -> str:
-    """
-    Get base URL from ConfigReader - session scoped.
-
-    Uses the ConfigReader's base_url property which handles validation.
+    """Returns validated base UI URL from config.
 
     Args:
-        config_reader: ConfigReader fixture (automatically injected)
+        config_reader: Injected ConfigReader fixture.
 
     Returns:
-        str: Base URL for the application
-
-    Raises:
-        ValueError: If base_url is not configured
+        str: Base URL for the application.
     """
     url = config_reader.base_url
-    print(f"[SESSION] Base URL set to {url}")
+    logger.info(f"[SESSION] Base URL: {url}")
     return url
 
 
 @pytest.fixture(scope="session")
-def browser(config_reader: ConfigReader) -> str:
-    """
-    Get browser from ConfigReader - session scoped.
-
-    Uses the ConfigReader's browser property which validates the browser.
+def browser_name(config_reader: ConfigReader) -> str:
+    """Returns validated browser name from config.
 
     Args:
-        config_reader: ConfigReader fixture (automatically injected)
+        config_reader: Injected ConfigReader fixture.
 
     Returns:
-        str: Browser name (chromium, firefox, or webkit)
-
-    Raises:
-        ValueError: If browser is not configured or invalid
+        str: Browser name — chromium, firefox, or webkit.
     """
-    browser_name = config_reader.browser
-    print(f"[SESSION] Browser set to: {browser_name}")
-    return browser_name
+    name = config_reader.browser
+    logger.info(f"[SESSION] Browser: {name}")
+    return name
 
 
 @pytest.fixture(scope="session")
 def timeout(config_reader: ConfigReader) -> int:
-    """
-    Get default timeout from ConfigReader - session scoped.
-
-    Uses the ConfigReader's timeout property with default fallback.
+    """Returns default timeout in milliseconds from config.
 
     Args:
-        config_reader: ConfigReader fixture (automatically injected)
+        config_reader: Injected ConfigReader fixture.
 
     Returns:
-        int: Timeout value in milliseconds (default: 30000)
+        int: Timeout in milliseconds.
     """
-    timeout_value = config_reader.timeout
-    print(f"[SESSION] Timeout set to: {timeout_value}ms")
-    return timeout_value
+    value = config_reader.timeout
+    logger.info(f"[SESSION] Timeout: {value}ms")
+    return value
+
+
+@pytest.fixture(scope="session")
+def playwright_instance():
+    """Starts and stops the Playwright engine once per session."""
+    with sync_playwright() as pw:
+        yield pw
+
+
+@pytest.fixture(scope="session")
+def browser_instance(
+    playwright_instance, browser_name: str, config_reader: ConfigReader
+) -> Browser:
+    """Launches the browser once per session.
+
+    Args:
+        playwright_instance: Running Playwright engine.
+        browser_name: Browser to launch from config.
+        config_reader: Config for headless and slow_mo settings.
+
+    Returns:
+        Browser: Launched Playwright Browser instance.
+    """
+    launcher = getattr(playwright_instance, browser_name)
+    browser = launcher.launch(
+        headless=config_reader.headless,
+        slow_mo=config_reader.slow_mo,
+    )
+    logger.info(f"[SESSION] Browser launched: {browser_name}")
+    yield browser
+    browser.close()
+    logger.info("[SESSION] Browser closed")
+
+
+@pytest.fixture(scope="function")
+def context(browser_instance: Browser, config_reader: ConfigReader) -> BrowserContext:
+    """Creates a fresh browser context per test function.
+
+    Args:
+        browser_instance: Session-scoped browser.
+        config_reader: Config for viewport, timeout, and trace settings.
+
+    Returns:
+        BrowserContext: Isolated browser context with tracing started.
+    """
+    ctx = browser_instance.new_context(
+        viewport=config_reader.viewport,
+    )
+    ctx.set_default_timeout(config_reader.timeout)
+
+    trace_mode = config_reader.trace
+    if trace_mode in ("on", "retain-on-failure"):
+        ctx.tracing.start(screenshots=True, snapshots=True, sources=True)
+        logger.info(f"[FIXTURE] Tracing started — mode: {trace_mode}")
+
+    yield ctx
+    ctx.close()
+
+
+@pytest.fixture(scope="function")
+def page(context: BrowserContext) -> Page:
+    """Creates a fresh page per test function.
+
+    Args:
+        context: Function-scoped browser context.
+
+    Returns:
+        Page: Playwright Page object ready for interaction.
+    """
+    p = context.new_page()
+    yield p
+    p.close()
 
 
 @pytest.fixture(scope="module")
 def data_reader() -> DataReader:
-    """
-    Create DataReader instance - module scoped.
-
-    Runs once per test module (test file). Provides access to your
-    DataReader utility for reading CSV and JSON test data files.
+    """Creates DataReader once per test module.
 
     Returns:
-        DataReader: DataReader instance for accessing test data
+        DataReader: Instance pointing at test_data directory.
     """
     reader = DataReader()
-    print("\n[MODULE] Data reader initialized for test_data directory")
+    logger.info("[MODULE] DataReader initialised")
     return reader
 
 
 @pytest.fixture(scope="class")
-def sample_user_data(data_reader: DataReader) -> List[Dict[str, str]]:
-    """
-    Load sample user data from users.csv - class scoped.
-
-    Runs once per test class. Uses DataReader to load actual test data
-    from your users.csv file instead of hardcoding values.
+def sample_user_data(data_reader: DataReader) -> list[dict]:
+    """Loads users.csv once per test class.
 
     Args:
-        data_reader: DataReader fixture (automatically injected)
+        data_reader: Injected DataReader fixture.
 
     Returns:
-        list: List of user dictionaries from users.csv
+        list[dict]: Rows from users.csv as dictionaries.
     """
-    print("\n[CLASS] Loading user data from users.csv via DataReader")
-    users = data_reader.read_csv("users.csv")
-    return users
+    try:
+        users = data_reader.read_csv("users.csv")
+        logger.info("[CLASS] Loaded user data from users.csv")
+        return users
+    except TestDataException as err:
+        pytest.fail(f"Failed to load user data: {err}")
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """
-    Hook to capture test results for use in fixtures.
-
-    This makes test results available to fixtures like screenshot_on_failure.
-    The call parameter is required by pytest's hook signature but not used here.
-
-    Args:
-        item: Test item being executed
-        call: information about the test call (setup/call/teardown phase)
-    """
+    """Captures test result per phase for use in fixtures."""
     outcome = yield
     rep = outcome.get_result()
     setattr(item, f"rep_{rep.when}", rep)
-
-
-@pytest.fixture(scope="session")
-def browser_setup():
-    """Session-scoped fixture to simulate browser lifecycle."""
-    print("\n[SESSION SETUP] Browser starting")
-    yield
-    print("\n[SESSION TEARDOWN] Browser closing")
