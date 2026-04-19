@@ -12,7 +12,7 @@ from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
 from src.utils.config_reader import ConfigReader
 from src.utils.data_reader import DataReader
-from src.utils.exceptions import ConfigurationException, TestDataException
+from src.utils.exceptions import ConfigurationException
 
 logger = logging.getLogger(__name__)
 
@@ -162,24 +162,6 @@ def data_reader() -> DataReader:
     reader = DataReader()
     logger.info("[MODULE] DataReader initialised")
     return reader
-
-
-@pytest.fixture(scope="class")
-def sample_user_data(data_reader: DataReader) -> list[dict]:
-    """Loads users.csv once per test class.
-
-    Args:
-        data_reader: Injected DataReader fixture.
-
-    Returns:
-        list[dict]: Rows from users.csv as dictionaries.
-    """
-    try:
-        users = data_reader.read_csv("users.csv")
-        logger.info("[CLASS] Loaded user data from users.csv")
-        return users
-    except TestDataException as err:
-        pytest.fail(f"Failed to load user data: {err}")
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

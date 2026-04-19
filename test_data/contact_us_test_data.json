@@ -1,0 +1,7 @@
+{
+    "name": "Test User",
+    "email": "testuser@example.com",
+    "subject": "Test Subject",
+    "message": "This is a test message submitted via automation.",
+    "upload_file": "test_data/files/contact_us_test_upload_file.txt"
+}

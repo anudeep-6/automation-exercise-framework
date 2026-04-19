@@ -1,0 +1,8 @@
+{
+    "product_id": 1,
+    "product_name": "Blue Top",
+    "product_price": "Rs. 500",
+    "product_quantity": "1",
+    "product_total": "Rs. 500",
+    "order_comment": "Please deliver between 9am-5pm"
+}

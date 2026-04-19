@@ -1,6 +1,0 @@
-username,password,expected_result
-registered@example.com,Test@1234,success
-anotheruser@example.com,Pass@5678,success
-registered@example.com,wrongpassword,failure
-,Test@1234,failure
-' OR '1'='1,anypassword,failure
