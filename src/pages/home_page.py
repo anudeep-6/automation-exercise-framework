@@ -1,5 +1,7 @@
 """This file contains the HomePage class."""
 
+import allure
+
 from src.pages.base_page import BasePage
 
 
@@ -20,6 +22,7 @@ class HomePage(BasePage):
     DELETE_ACCOUNT_LINK = "a:text('Delete Account')"
     LOGGED_IN_AS = "a:text('Logged in as')"
     USERNAME = "a:text('Logged in as') b"
+    CONTACT_US_LINK = "a[href='/contact_us']"
 
     def is_logged_in(self) -> bool:
         """Returns True if 'Logged in as' is visible in the navbar."""
@@ -29,30 +32,47 @@ class HomePage(BasePage):
         """Returns the username shown in the navbar after login."""
         return self.get_text(self.USERNAME)
 
-    def expect_logged_in(self):
-        """Asserts the logged-in indicator is visible."""
-        self.expect_visible(self.LOGGED_IN_AS)
+    @allure.step("Expect user is logged in as: {name}")
+    def expect_logged_in(self, name: str) -> None:
+        """Asserts the logged-in indicator is visible and shows the correct name.
 
-    def expect_home_page_visible(self):
+        Args:
+            username (str): The username expected to appear in the navbar.
+        """
+        self.expect_visible(self.LOGGED_IN_AS)
+        self.expect_text(self.USERNAME, name)
+
+    @allure.step("Expect home page is visible")
+    def expect_home_page_visible(self) -> None:
         """Asserts the home page is loaded by checking the Home nav link."""
         self.expect_visible(self.HOME_LINK)
 
-    def go_to_signup_login(self):
+    @allure.step("Navigate to Signup / Login")
+    def go_to_signup_login(self) -> None:
         """Clicks the Signup / Login link in the navbar."""
         self.click(self.SIGNUP_LOGIN_LINK)
 
-    def go_to_products(self):
+    @allure.step("Navigate to Products")
+    def go_to_products(self) -> None:
         """Clicks the Products link in the navbar."""
         self.click(self.PRODUCTS_LINK)
 
-    def go_to_cart(self):
+    @allure.step("Navigate to Cart")
+    def go_to_cart(self) -> None:
         """Clicks the Cart link in the navbar."""
         self.click(self.CART_LINK)
 
-    def logout(self):
+    @allure.step("Logout")
+    def logout(self) -> None:
         """Clicks the Logout link."""
         self.click(self.LOGOUT_LINK)
 
-    def delete_account(self):
+    @allure.step("Delete account")
+    def delete_account(self) -> None:
         """Clicks the Delete Account link in the navbar."""
         self.click(self.DELETE_ACCOUNT_LINK)
+
+    @allure.step("Navigate to Contact Us")
+    def go_to_contact_us(self) -> None:
+        """Clicks the Contact Us link in the navbar."""
+        self.click(self.CONTACT_US_LINK)

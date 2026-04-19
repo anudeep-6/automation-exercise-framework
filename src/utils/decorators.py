@@ -1,4 +1,4 @@
-"""This file contains custom decorators for the automation framework."""
+"""Reusable decorators for retry logic and other cross-cutting framework concerns."""
 
 import functools
 import logging
@@ -7,16 +7,24 @@ import time
 logger = logging.getLogger(__name__)
 
 
-def retry(max_attempts=3, delay=1):
-    """Decorator that retries a function if it raises an exception.
+def retry(max_attempts: int = 3, delay: float = 1.0):
+    """Retries a function on exception up to a maximum number of attempts.
+
+    Useful for interactions that are inherently flaky — file upload dialogs,
+    third-party widgets, or API endpoints with transient failures.
 
     Args:
-        max_attempts (int): Maximum number of attempts. Defaults to 3.
-        delay (int): Seconds to wait between attempts. Defaults to 1.
+        max_attempts (int): Maximum number of attempts before re-raising.
+            Defaults to 3.
+        delay (float): Seconds to wait between attempts. Accepts floats
+            for sub-second intervals (e.g. 0.5). Defaults to 1.0.
+
+    Raises:
+        Exception: Re-raises the last exception if all attempts are exhausted.
 
     Example:
-        @retry(max_attempts=3, delay=2)
-        def login(self, email, password):
+        @retry(max_attempts=3, delay=2.0)
+        def submit_payment(self):
             ...
     """
 
@@ -29,12 +37,18 @@ def retry(max_attempts=3, delay=1):
                 except Exception as err:
                     if attempt == max_attempts:
                         logger.error(
-                            f"{func.__name__} failed after {max_attempts} attempts"
+                            "%s failed after %d attempts",
+                            func.__name__,
+                            max_attempts,
                         )
                         raise
                     logger.warning(
-                        f"Attempt {attempt} failed for {func.__name__}: {err}. "
-                        f"Retrying in {delay}s..."
+                        "Attempt %d/%d failed for %s: %s — retrying in %.1fs",
+                        attempt,
+                        max_attempts,
+                        func.__name__,
+                        err,
+                        delay,
                     )
                     time.sleep(delay)
 
