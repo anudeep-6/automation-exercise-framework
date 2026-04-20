@@ -1,0 +1,211 @@
+{
+	"info": {
+		"_postman_id": "00f722a0-1f2b-4d3c-b661-7a5bfaf51889",
+		"name": "automation_exercise",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "54160487",
+		"_collection_link": "https://anudeep6142-5511823.postman.co/workspace/bfc3e7df-d0ac-4bb5-84d6-68683137e32c/collection/54160487-00f722a0-1f2b-4d3c-b661-7a5bfaf51889?action=share&source=collection_link&creator=54160487"
+	},
+	"item": [
+		{
+			"name": "Get products list",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://automationexercise.com/api/productsList",
+					"protocol": "https",
+					"host": [
+						"automationexercise",
+						"com"
+					],
+					"path": [
+						"api",
+						"productsList"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create new user",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "name",
+							"value": "{{test_name}}",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "{{test_email}}",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "{{test_password}}",
+							"type": "text"
+						},
+						{
+							"key": "title",
+							"value": "Mr",
+							"type": "text"
+						},
+						{
+							"key": "birth_date",
+							"value": "01",
+							"type": "text"
+						},
+						{
+							"key": "birth_month",
+							"value": "01",
+							"type": "text"
+						},
+						{
+							"key": "birth_year",
+							"value": "2001",
+							"type": "text"
+						},
+						{
+							"key": "firstname",
+							"value": "{{test_firstname}}",
+							"type": "text"
+						},
+						{
+							"key": "lastname",
+							"value": "{{test_lastname}}",
+							"type": "text"
+						},
+						{
+							"key": "company",
+							"value": "test_company",
+							"type": "text"
+						},
+						{
+							"key": "address1",
+							"value": "test_address1",
+							"type": "text"
+						},
+						{
+							"key": "address2",
+							"value": "test_address2",
+							"type": "text"
+						},
+						{
+							"key": "country",
+							"value": "test_country",
+							"type": "text"
+						},
+						{
+							"key": "zipcode",
+							"value": "000000",
+							"type": "text"
+						},
+						{
+							"key": "state",
+							"value": "test_state",
+							"type": "text"
+						},
+						{
+							"key": "city",
+							"value": "test_city",
+							"type": "text"
+						},
+						{
+							"key": "mobile_number",
+							"value": "0000000000",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://automationexercise.com/api/createAccount",
+					"protocol": "https",
+					"host": [
+						"automationexercise",
+						"com"
+					],
+					"path": [
+						"api",
+						"createAccount"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "verify login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "email",
+							"value": "{{test_email}}",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "{{test_password}}",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://automationexercise.com/api/verifyLogin",
+					"protocol": "https",
+					"host": [
+						"automationexercise",
+						"com"
+					],
+					"path": [
+						"api",
+						"verifyLogin"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "delete user",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "email",
+							"value": "{{test_email}}",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "{{test_password}}",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://automationexercise.com/api/deleteAccount",
+					"protocol": "https",
+					"host": [
+						"automationexercise",
+						"com"
+					],
+					"path": [
+						"api",
+						"deleteAccount"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
