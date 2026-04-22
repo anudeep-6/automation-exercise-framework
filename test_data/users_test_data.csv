@@ -1,5 +1,5 @@
-username,password,expected_result,name,fullname,city_state_zip,country,phone,validation_type
-test_demo_user@gmail.com,testdemo#123,success,test_demo_user,test demo user,Bangalore Karnataka 506034,India,9990990909,
-registered@example.com,wrongpassword,failure,registered,,,,,wrong_credentials
-,Test@1234,failure,,,,,,empty_email
- OR '1'='1,anypassword,failure,,,,,,invalid_format
+username,password,expected_result,name,fullname,city_state_zip,country,phone,validation_type,expected_response_code
+test_demo_user@gmail.com,testdemo#123,success,test_demo_user,test demo user,Bangalore Karnataka 506034,India,9990990909,,
+registered@example.com,wrongpassword,failure,registered,,,,,wrong_credentials,404
+,Test@1234,failure,,,,,,empty_email,404
+ OR '1'='1,anypassword,failure,,,,,,invalid_format,404

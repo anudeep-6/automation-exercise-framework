@@ -51,6 +51,21 @@ def base_url(config_reader: ConfigReader) -> str:
 
 
 @pytest.fixture(scope="session")
+def base_api_url(config_reader: ConfigReader) -> str:
+    """Returns validated base API URL from config.
+
+    Args:
+        config_reader: Injected ConfigReader fixture.
+
+    Returns:
+        str: Base API URL for the application.
+    """
+    url = config_reader.base_api_url
+    logger.info(f"[SESSION] Base API URL: {url}")
+    return url
+
+
+@pytest.fixture(scope="session")
 def browser_name(config_reader: ConfigReader) -> str:
     """Returns validated browser name from config.
 
