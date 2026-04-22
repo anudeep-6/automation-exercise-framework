@@ -32,6 +32,7 @@ A robust test automation framework for the Automation Exercise website, implemen
 | **pytest-xdist** | >=3.5.0 | Parallel test execution |
 | **Allure** | >=2.13.0 | Rich test reporting and documentation |
 | **Requests** | >=2.31.0 | HTTP client for API testing |
+| **jsonschema** | >=4.0.0 | JSON schema validation for API responses |
 
 ---
 
@@ -79,7 +80,8 @@ automation-exercise-framework/
 │   │
 │   ├── api/                    # API client and helpers
 │   │   ├── __init__.py
-│   │   └── .gitkeep            # Placeholder for API implementations
+│   │   └── api_client.py        # APIClient — requests.Session wrapper (get/post/put/delete)
+│   │                            # _log_response() logs method, URL, status, ms at INFO
 │   │
 │   └── utils/                  # Utility classes and helpers
 │       ├── __init__.py
@@ -87,7 +89,9 @@ automation-exercise-framework/
 │       ├── data_reader.py      # Test data reader (CSV, JSON, etc.)
 │       ├── decorators.py       # Custom decorators (@retry, @log_test, etc.)
 │       ├── exceptions.py       # Custom exceptions
-│       └── log_manager.py      # Logging configuration and management
+│       ├── log_manager.py      # Logging configuration and management
+│       └── schema_validator.py # JSON schema validator — validate(response_json, schema)
+│                               # Wraps jsonschema.validate(), converts ValidationError → AssertionError
 │
 ├── test_data/                  # Test data files
 │   ├── users_test_data.csv                    # User credentials for login/registration tests
@@ -115,7 +119,14 @@ automation-exercise-framework/
 │   │
 │   ├── api/                    # API automated tests
 │   │   ├── __init__.py
-│   │   └── .gitkeep            # Placeholder for API tests
+│   │   ├── conftest.py         # API-specific fixtures (api_client session-scoped)
+│   │   ├── schemas/
+│   │   │   ├── __init__.py
+│   │   │   ├── account_schema.py      # ACCOUNT_DETAIL_SCHEMA, SIMPLE_RESPONSE_SCHEMA
+│   │   │   └── product_schema.py      # PRODUCT_LIST_SCHEMA
+│   │   ├── test_products_api.py       # 3 tests — GET /api/productsList
+│   │   ├── test_account_api.py        # 8 tests — CRUD endpoints
+│   │   └── test_auth_api.py           # 6 tests — verifyLogin + getUserDetailByEmail
 │   │
 │   └── hybrid/                 # Combined UI + API tests
 │       ├── __init__.py
@@ -391,6 +402,98 @@ def test_register_user_and_verify(page, base_url):
     login_page.login('john.doe@example.com', 'password123')
     home_page = HomePage(page, base_url)
     home_page.expect_logged_in()
+```
+
+---
+
+## API Test Suite
+
+The framework includes a full REST API test suite targeting the
+[Automation Exercise public API](https://automationexercise.com/api_list).
+All API tests live in `tests/api/` and use a thin `requests.Session`
+wrapper (`src/api/api_client.py`) with automatic request/response
+logging and Allure step integration.
+
+### Endpoints Covered
+
+| Test File | Endpoint(s) | Scenarios |
+|-----------|-------------|-----------|
+| `test_products_api.py` | `GET /api/productsList` | HTTP 200, responseCode 200, non-empty list, schema validation |
+| `test_account_api.py` | `POST /api/createAccount` `GET /api/getUserDetailByEmail` `PUT /api/updateAccount` `DELETE /api/deleteAccount` | Full CRUD lifecycle — create → read → update → verify → delete. Negative: duplicate account (409), delete non-existent account |
+| `test_auth_api.py` | `POST /api/verifyLogin` `GET /api/getUserDetailByEmail` | Valid credentials, invalid password, invalid email, missing fields |
+
+**Total: 17 API test cases** across products, account CRUD, and authentication flows.
+
+### Assertion Strategy
+
+Every API test follows a four-layer assertion order:
+
+1. **HTTP status** — `assert response.status_code == 200`
+2. **Schema** — `validate(response.json(), SCHEMA)` via `src/utils/schema_validator.py` (wraps `jsonschema`)
+3. **responseCode** — site-level code in the JSON body (e.g. `assert data["responseCode"] == 200`)
+4. **Business logic** — field-level assertions (e.g. email matches, account name correct)
+
+### Running the API Tests
+
+```bash
+# Run all API tests
+pytest tests/api/ -v
+
+# Run with Allure reporting
+pytest tests/api/ -v --alluredir=allure-results
+
+# Run a specific API test file
+pytest tests/api/test_account_api.py -v
+pytest tests/api/test_auth_api.py -v
+pytest tests/api/test_products_api.py -v
+```
+
+### Viewing the Allure Report
+
+```bash
+# Serve the report locally (requires allure CLI)
+allure serve allure-results
+```
+
+Navigate to **Behaviors** in the Allure sidebar to see the hierarchy:
+
+```
+API
+├── Account API       (8 tests)
+│   ├── Account Creation
+│   ├── Account CRUD
+│   └── User Detail
+├── Authentication    (6 tests)
+│   ├── Valid Login
+│   └── Invalid Login
+└── Products API      (3 tests)
+    └── Product List
+```
+
+Each test shows step-level drill-down with full request method, URL,
+HTTP status, and response time logged as Allure attachments.
+
+### API Layer Architecture
+
+```
+src/
+└── api/
+    └── api_client.py          # requests.Session wrapper — get/post/put/delete
+                               # _log_response() logs method, URL, status, ms at INFO
+
+src/utils/
+└── schema_validator.py        # validate(response_json, schema)
+                               # wraps jsonschema.validate(), converts
+                               # ValidationError → AssertionError with field path
+
+tests/api/
+├── conftest.py                # session-scoped api_client fixture
+├── schemas/
+│   ├── account_schema.py      # ACCOUNT_DETAIL_SCHEMA, SIMPLE_RESPONSE_SCHEMA
+│   └── product_schema.py      # PRODUCT_LIST_SCHEMA
+├── test_account_api.py        # 8 tests — CRUD + getUserDetailByEmail
+├── test_auth_api.py           # 6 tests — verifyLogin + negative cases
+└── test_products_api.py       # 3 tests — productsList
 ```
 
 ---
@@ -934,6 +1037,12 @@ This project is open source and available for educational purposes.
 - Shopping cart and checkout flow tests
 - Contact form tests
 - User registration and profile tests
+
+**API Test Coverage:**
+- 17 API tests across products, account CRUD, and authentication flows
+- Custom APIClient wrapping requests.Session with structured logging
+- JSON schema validation layer (jsonschema) with clean AssertionError output
+- Four-layer assertion strategy: HTTP status → schema → responseCode → business logic
 
 **Advanced Features:**
 - Network interception tests (test_network.py) for API validation

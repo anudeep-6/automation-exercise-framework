@@ -27,6 +27,7 @@ dependencies = [
     "pytest-html>=4.1.0",
     "allure-pytest>=2.13.0",
     "requests>=2.31.0",
+    "jsonschema>=4.0",
 ]
 
 [project.optional-dependencies]
