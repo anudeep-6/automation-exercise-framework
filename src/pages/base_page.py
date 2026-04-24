@@ -31,7 +31,7 @@ class BasePage:
         self.page = page
         self.base_url = base_url
         self.url = f"{self.base_url}{self.PATH}"
-        self.timeout = ConfigReader().get("default_timeout", 30000)
+        self.timeout = ConfigReader().timeout
 
     def navigate(self) -> None:
         """Navigates to this page's full URL."""
@@ -64,7 +64,7 @@ class BasePage:
             locator (str): Playwright locator string.
             value (str): Text to enter.
         """
-        with allure.step(f"Fill '{locator}' with '{value}'"):
+        with allure.step(f"Fill: {locator}"):
             logger.debug(f"Filling '{locator}' with value (length={len(value)})")
             self.page.locator(locator).fill(value)
 
@@ -77,6 +77,7 @@ class BasePage:
         Args:
             locator (str): Playwright locator string.
         """
+        logger.debug(f"Getting inner text of: {locator}")
         return self.page.locator(locator).inner_text()
 
     def get_text_content(self, locator: str) -> str:
@@ -89,6 +90,7 @@ class BasePage:
         Args:
             locator (str): Playwright locator string.
         """
+        logger.debug(f"Getting text content of: {locator}")
         return self.page.locator(locator).text_content()
 
     def get_all_text_contents(self, locator: str) -> list[str]:
@@ -100,6 +102,7 @@ class BasePage:
             locator (str): Playwright locator string.
         """
         self.page.locator(locator).first.wait_for(state="visible")
+        logger.debug(f"Getting all text contents of: {locator}")
         return self.page.locator(locator).all_text_contents()
 
     def is_visible(self, locator: str) -> bool:
@@ -108,6 +111,7 @@ class BasePage:
         Args:
             locator (str): Playwright locator string.
         """
+        logger.debug(f"Checking visibility of: {locator}")
         return self.page.locator(locator).is_visible()
 
     def expect_url_contains(self, fragment: str) -> None:
@@ -117,6 +121,7 @@ class BasePage:
             fragment (str): URL substring to check for.
         """
         with allure.step(f"Expect URL to contain: '{fragment}'"):
+            logger.debug(f"Asserting URL contains: '{fragment}'")
             expect(self.page).to_have_url(re.compile(f".*{fragment}.*"))
 
     def expect_visible(self, locator: str) -> None:
@@ -150,7 +155,7 @@ class BasePage:
             text (str): Expected text content.
         """
         with allure.step(f"Expect text '{text}' in: {locator}"):
-            logger.debug(f"Expected text '{text}' in: {locator}")
+            logger.debug(f"Asserting text '{text}' in: {locator}")
             expect(self.page.locator(locator)).to_have_text(text)
 
     def expect_contains_text(self, locator: str, text: str) -> None:
@@ -180,6 +185,7 @@ class BasePage:
         """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Upload file not found at path: {file_path}")
+        logger.info(f"Uploading file '{file_path}' to: {selector}")
         self.page.locator(selector).set_input_files(file_path)
 
     def accept_dialog(self) -> list[str]:
@@ -199,6 +205,7 @@ class BasePage:
 
         def handler(dialog):
             dialog_message.append(dialog.message)
+            logger.info(f"Dialog accepted: '{dialog.message}'")
             dialog.accept()
 
         self.page.once("dialog", handler)
@@ -231,6 +238,7 @@ class BasePage:
         Args:
             locator (str): Playwright locator string pointing to the input element.
         """
+        logger.debug(f"Checking checked state of: {locator}")
         return self.page.locator(locator).is_checked()
 
     def __str__(self) -> str:

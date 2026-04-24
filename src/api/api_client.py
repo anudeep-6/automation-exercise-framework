@@ -31,21 +31,60 @@ class APIClient:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
-        self.session.headers.update({"Accept": "application/json"})
-        logger.debug("APIClient initialised with base_url=%s", self.base_url)
+        self.session.headers.update(
+            {
+                "Accept": "application/json",
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+            }
+        )
+        self._prime_csrf()
+        logger.debug(f"APIClient initialised with base_url={self.base_url}")
+
+    def _prime_csrf(self) -> None:
+        """
+        Fetch the homepage to seed the session cookie jar with a csrftoken,
+        then set the headers Django's CSRF middleware requires on HTTPS:
+        - X-CSRFToken: validated by Django on AJAX-style requests
+        - Referer: required by Django's CSRF middleware on all HTTPS POSTs —
+            must match the host or the middleware rejects the request with 403
+            regardless of whether the token is present and valid
+        """
+        self.session.get(self.base_url, timeout=10)
+        csrf = self.session.cookies.get("csrftoken")
+        if csrf:
+            self.session.headers.update(
+                {
+                    "X-CSRFToken": csrf,
+                    "Referer": f"{self.base_url}/",
+                }
+            )
+            logger.debug("CSRF token primed and Referer header set")
+        else:
+            logger.warning("No csrftoken found on homepage — API write calls may 403")
 
     def _url(self, path: str) -> str:
         """Prepend base_url to a relative path."""
         return f"{self.base_url}/{path.lstrip('/')}"
 
     def _log_response(self, response: requests.Response) -> None:
-        logger.info(
-            "%s %s %s in %.0fms",
-            response.request.method,
-            response.url,
-            response.status_code,
-            response.elapsed.total_seconds() * 1000,
+        elapsed_ms = response.elapsed.total_seconds() * 1000 if response.elapsed else 0
+        msg = (
+            f"{response.request.method} {response.url} | Status: "
+            f"{response.status_code} | Time: {elapsed_ms:.0f}ms"
         )
+        if response.status_code >= 400:
+            logger.error(msg)
+            logger.error(f"Response body:\n{response.text[:500]}")
+        elif response.is_redirect:
+            logger.warning(
+                f"{msg} → redirecting to: {response.headers.get('Location', 'unknown')}"
+            )
+        else:
+            logger.info(msg)
 
     def get(self, path: str, **kwargs) -> requests.Response:
         """
@@ -54,12 +93,13 @@ class APIClient:
         Args:
             path: Relative endpoint path, e.g. "/api/productsList"
             **kwargs: Passed directly to requests.Session.get
-                      (params, headers, timeout, …)
 
         Returns:
-            requests.Response
+            requests.Response — redirect responses are returned as-is;
+            callers receive the raw API response, not the redirect target.
         """
-        response = self.session.get(self._url(path), **kwargs)
+        logger.debug(f"GET {self._url(path)}")
+        response = self.session.get(self._url(path), allow_redirects=False, **kwargs)
         self._log_response(response)
         return response
 
@@ -70,12 +110,12 @@ class APIClient:
         Args:
             path: Relative endpoint path
             **kwargs: Passed directly to requests.Session.post
-                      (data, json, headers, …)
 
         Returns:
-            requests.Response
+            requests.Response — redirect responses are returned as-is.
         """
-        response = self.session.post(self._url(path), **kwargs)
+        logger.debug(f"POST {self._url(path)}")
+        response = self.session.post(self._url(path), allow_redirects=False, **kwargs)
         self._log_response(response)
         return response
 
@@ -86,12 +126,12 @@ class APIClient:
         Args:
             path: Relative endpoint path
             **kwargs: Passed directly to requests.Session.put
-                      (data, json, headers, …)
 
         Returns:
-            requests.Response
+            requests.Response — redirect responses are returned as-is.
         """
-        response = self.session.put(self._url(path), **kwargs)
+        logger.debug(f"PUT {self._url(path)}")
+        response = self.session.put(self._url(path), allow_redirects=False, **kwargs)
         self._log_response(response)
         return response
 
@@ -102,12 +142,12 @@ class APIClient:
         Args:
             path: Relative endpoint path
             **kwargs: Passed directly to requests.Session.delete
-                      (headers, …)
 
         Returns:
-            requests.Response
+            requests.Response — redirect responses are returned as-is.
         """
-        response = self.session.delete(self._url(path), **kwargs)
+        logger.debug(f"DELETE {self._url(path)}")
+        response = self.session.delete(self._url(path), allow_redirects=False, **kwargs)
         self._log_response(response)
         return response
 

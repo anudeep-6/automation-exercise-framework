@@ -10,6 +10,7 @@ import logging
 import pytest
 from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
+from src.api.api_client import APIClient
 from src.utils.config_reader import ConfigReader
 from src.utils.data_reader import DataReader
 from src.utils.exceptions import ConfigurationException
@@ -185,3 +186,37 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
     setattr(item, f"rep_{rep.when}", rep)
+
+
+@pytest.fixture(scope="session")
+def api_client(base_api_url: str) -> APIClient:
+    """
+    Session-scoped APIClient pointed at the configured base API URL.
+
+    Yields the client for the duration of the test session, then
+    closes the underlying requests.Session to release connections.
+    """
+    client = APIClient(base_url=base_api_url)
+    yield client
+    client.close()
+
+
+@pytest.fixture(autouse=True)
+def block_ads(page: Page) -> None:
+    """Abort ad/tracking requests before page navigation.
+
+    Ad overlays injected by the site intercept button clicks (e.g. the
+    Contact Us submit button), causing DialogException. Blocking at the
+    network level before any page.goto() is more reliable than DOM removal.
+    """
+    ad_patterns = [
+        "**/googleads**",
+        "**/doubleclick.net/**",
+        "**/googlesyndication.com/**",
+        "**/adsbygoogle**",
+        "**/google-analytics.com/**",
+        "**/adservice.google.com/**",
+        "**/pagead2.googlesyndication.com/**",
+    ]
+    for pattern in ad_patterns:
+        page.route(pattern, lambda route: route.abort())

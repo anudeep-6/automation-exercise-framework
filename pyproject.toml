@@ -28,6 +28,9 @@ dependencies = [
     "allure-pytest>=2.13.0",
     "requests>=2.31.0",
     "jsonschema>=4.0",
+    "python-decouple>=3.8",
+    "openpyxl>=3.1.0",
+    "faker>=40.15.0",
 ]
 
 [project.optional-dependencies]

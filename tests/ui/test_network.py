@@ -12,6 +12,7 @@ import re
 
 import allure
 import pytest
+from decouple import config
 from playwright.sync_api import Page, Route
 
 MOCK_PRODUCTS = {
@@ -21,6 +22,8 @@ MOCK_PRODUCTS = {
         {"id": 2, "name": "Mock Jeans", "price": "Rs. 1000"},
     ],
 }
+
+BASE_URL = config("BASE_URL")
 
 
 @pytest.mark.regression
@@ -43,7 +46,7 @@ def test_mock_product_api(page: Page):
 
     with allure.step("Register API mock and navigate to products page"):
         page.route("**/api/productsList", handle_products)
-        page.goto("https://automationexercise.com/products")
+        page.goto(f"{BASE_URL}/products")
 
     with allure.step("Verify at least 2 product cards are visible with mocked data"):
         products = page.locator(".productinfo")
@@ -65,7 +68,7 @@ def test_abort_image_requests(page: Page):
             re.compile(r".*\.(png|jpg|jpeg|gif|svg|webp)(\?.*)?$"),
             lambda route: route.abort(),
         )
-        page.goto("https://automationexercise.com")
+        page.goto(BASE_URL)
 
     with allure.step("Verify page body is visible"):
         assert page.locator("body").is_visible()
@@ -92,7 +95,7 @@ def test_modify_request_headers(page: Page):
     with allure.step("Register header injection route and navigate to products page"):
         page.route("**/products", inject_header)
         with page.expect_request("**/products") as req_info:
-            page.goto("https://automationexercise.com/products")
+            page.goto(f"{BASE_URL}/products")
 
     with allure.step("Verify outgoing request contains injected X-Test-Flag header"):
         request = req_info.value

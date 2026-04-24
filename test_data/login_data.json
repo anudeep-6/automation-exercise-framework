@@ -1,0 +1,37 @@
+[
+    {
+        "description": "valid user - registered account",
+        "email": "test_demo_user@gmail.com",
+        "password": "testdemo#123",
+        "name": "test_demo_user",
+        "expected_result": "success"
+    },
+    {
+        "description": "invalid - wrong password",
+        "email": "your_email@example.com",
+        "password": "wrongpass",
+        "expected_result": "failure",
+        "validation_type": "wrong_credentials"
+    },
+    {
+        "description": "invalid - unregistered email",
+        "email": "nouser@example.com",
+        "password": "Test@1234",
+        "expected_result": "failure",
+        "validation_type": "wrong_credentials"
+    },
+    {
+        "description": "invalid - empty email",
+        "email": "",
+        "password": "Test@1234",
+        "expected_result": "failure",
+        "validation_type": "empty_email"
+    },
+    {
+        "description": "invalid - malformed email",
+        "email": "notanemail",
+        "password": "Test@1234",
+        "expected_result": "failure",
+        "validation_type": "invalid_format"
+    }
+]

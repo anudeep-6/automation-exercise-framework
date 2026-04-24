@@ -11,33 +11,41 @@ import pytest
 
 from src.utils.data_reader import DataReader
 
+_reader = DataReader()
 
-def load_users(expected_result: str, include_name: bool = False) -> list[tuple]:
-    """Load and shape user rows from users_test_data.csv for login parametrization.
+
+def _load_login_data(
+    expected_result: str, include_name: bool = False
+) -> tuple[list[tuple], list[str]]:
+    """Load and shape login rows from login_data.json for parametrization.
+
+    Reads the file once and returns both the parameter tuples and IDs together
+    to avoid multiple reads at collection time.
 
     Args:
-        expected_result (str): Value to filter the 'expected_result' column by.
-            Typically "success" for valid credentials or "failure" for invalid.
-        include_name (bool): If True, returns (username, password, name) tuples
-            for tests that validate the logged-in username display.
-            If False, returns (username, password, validation_type) tuples
-            for tests that validate error messages. Defaults to False.
+        expected_result (str): Filter value for the 'expected_result' key.
+        include_name (bool): If True, returns (email, password, name) tuples.
+            If False, returns (email, password, validation_type) tuples.
 
     Returns:
-        list[tuple]: List of tuples shaped for login parametrization.
+        tuple[list[tuple], list[str]]: Parameter tuples and matching IDs.
     """
-    reader = DataReader()
-    rows = reader.load_csv_rows(
-        "users_test_data.csv", filter_by={"expected_result": expected_result}
+    rows = _reader.load_json_rows(
+        "login_data.json", filter_by={"expected_result": expected_result}
     )
-
+    ids = [row["description"] for row in rows]
     if include_name:
-        return [(row["username"], row["password"], row["name"]) for row in rows]
+        params = [(row["email"], row["password"], row["name"]) for row in rows]
+    else:
+        params = [
+            (row["email"], row["password"], row.get("validation_type", ""))
+            for row in rows
+        ]
+    return params, ids
 
-    return [
-        (row["username"], row["password"], row.get("validation_type", ""))
-        for row in rows
-    ]
+
+_VALID_PARAMS, _VALID_IDS = _load_login_data("success", include_name=True)
+_INVALID_PARAMS, _INVALID_IDS = _load_login_data("failure")
 
 
 @allure.epic("User Management")
@@ -51,9 +59,7 @@ class TestLogin:
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.regression
     @pytest.mark.smoke
-    @pytest.mark.parametrize(
-        "username, password, name", load_users("success", include_name=True)
-    )
+    @pytest.mark.parametrize("username, password, name", _VALID_PARAMS, ids=_VALID_IDS)
     def test_valid_login(
         self,
         username,
@@ -92,7 +98,7 @@ class TestLogin:
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.regression
     @pytest.mark.parametrize(
-        "username, password, validation_type", load_users("failure")
+        "username, password, validation_type", _INVALID_PARAMS, ids=_INVALID_IDS
     )
     def test_invalid_login(
         self,

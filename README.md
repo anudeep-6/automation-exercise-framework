@@ -33,6 +33,9 @@ A robust test automation framework for the Automation Exercise website, implemen
 | **Allure** | >=2.13.0 | Rich test reporting and documentation |
 | **Requests** | >=2.31.0 | HTTP client for API testing |
 | **jsonschema** | >=4.0.0 | JSON schema validation for API responses |
+| **python-decouple** | >=3.8 | Environment variable management and configuration |
+| **Faker** | >=20.0.0 | Fake data generation for testing |
+| **openpyxl** | >=3.10 | Excel file reading for data-driven tests |
 
 ---
 
@@ -43,21 +46,27 @@ automation-exercise-framework/
 │
 ├── .vscode/                    # VS Code workspace settings
 │
-├── allure-results/             # Allure test report data
+├── .env                        # Environment variables (git ignored)
+├── .env.example                # Example environment variables template
+├── .env.staging                # Staging environment variables
 │
-├── artifacts/                  # Test artifacts and files
+├── allure-results/             # Allure test report data (git ignored)
+│
+├── artifacts/                  # Test artifacts and files (git ignored)
 │
 ├── auth/                       # Browser authentication state
 │   └── state.json              # Saved browser auth state for reuse
 │
-├── config/                     # Configuration files
-│   └── config.json             # Environment configurations
+├── .env                        # Environment variables (git ignored)
+├── .env.example                # Example environment variables template
 │
 ├── docs/                       # Project documentation
+│   ├── api_collection_notes.md # Postman collection notes and API documentation
+│   └── postman_collection.json # Postman API collection for manual testing
 │
-├── downloads/                  # Downloaded files during tests
+├── downloads/                  # Downloaded files during tests (git ignored)
 │
-├── reports/                    # Test execution reports
+├── reports/                    # Test execution reports (git ignored)
 │
 ├── scripts/                    # Utility scripts
 │   └── save_auth_state.py      # Script to save browser authentication state
@@ -85,16 +94,22 @@ automation-exercise-framework/
 │   │
 │   └── utils/                  # Utility classes and helpers
 │       ├── __init__.py
-│       ├── config_reader.py    # Configuration file reader
-│       ├── data_reader.py      # Test data reader (CSV, JSON, etc.)
+│       ├── config_reader.py    # Configuration file reader (decouple-based)
+│       ├── data_reader.py      # Test data reader (CSV, JSON, Excel, etc.)
+│       ├── date_helper.py      # Date and time utility functions
 │       ├── decorators.py       # Custom decorators (@retry, @log_test, etc.)
 │       ├── exceptions.py       # Custom exceptions
+│       ├── fake_data.py        # Fake data generation utilities
 │       ├── log_manager.py      # Logging configuration and management
+│       ├── logger.py           # Logger factory with get_logger()
 │       └── schema_validator.py # JSON schema validator — validate(response_json, schema)
 │                               # Wraps jsonschema.validate(), converts ValidationError → AssertionError
 │
 ├── test_data/                  # Test data files
 │   ├── users_test_data.csv                    # User credentials for login/registration tests
+│   ├── users_test_data.xlsx                   # User credentials in Excel format
+│   ├── auth_test_data.json                    # Authentication test data
+│   ├── login_data.json                        # Login form test data
 │   ├── register_user_test_data.json           # User registration test data
 │   ├── product_test_data.json                 # Product information test data
 │   ├── payment_test_data.json                 # Payment form test data
@@ -130,7 +145,10 @@ automation-exercise-framework/
 │   │
 │   └── hybrid/                 # Combined UI + API tests
 │       ├── __init__.py
-│       └── .gitkeep            # Placeholder for hybrid tests
+│       ├── conftest.py         # Hybrid test specific fixtures
+│       ├── test_hybrid_account.py      # Account creation via API → verify in UI
+│       ├── test_hybrid_cart.py         # Add to cart via UI → verify via API
+│       └── test_hybrid_checkout.py     # Multi-step: API setup → UI purchase → API verification
 │
 ├── venv/                       # Virtual environment (git ignored)
 │
@@ -188,7 +206,8 @@ automation-exercise-framework/
 
 ### Run all tests
 ```bash
-pytest
+pytest                          # Run all tests
+pytest --co -q                  # Count tests: 50+ total (UI, API, hybrid, data-driven)
 ```
 
 ### Run specific test suites
@@ -261,14 +280,36 @@ pytest -s                           # Show print statements and logging
 
 ## Utilities & Helpers
 
-### Configuration Management
+### Configuration Management (Environment-Based)
 ```python
 from src.utils.config_reader import ConfigReader
+from decouple import config as decouple_config
 
+# ConfigReader uses python-decouple to read from .env file
+# Direct property access (no __init__ file-loading):
 config = ConfigReader()
-base_url = config.base_url
-timeout = config.get('timeout')
-headless = config.get('headless', default=True)
+base_url = config.base_url         # Reads BASE_URL from .env
+timeout = config.timeout           # Reads TIMEOUT from .env
+headless = config.headless         # Reads HEADLESS from .env
+browser = config.browser           # Reads BROWSER from .env
+
+# Or use decouple directly:
+base_url = decouple_config('BASE_URL')
+timeout = int(decouple_config('TIMEOUT', default=30000))
+```
+
+### Environment Variables (.env)
+```bash
+# .env or .env.example
+BASE_URL=https://automationexercise.com
+BASE_API_URL=https://automationexercise.com/api
+TIMEOUT=30000
+HEADLESS=true
+BROWSER=chromium
+SLOW_MO=0
+VIEWPORT_WIDTH=1280
+VIEWPORT_HEIGHT=720
+TRACE=retain-on-failure
 ```
 
 ### Test Data Reader
@@ -306,6 +347,35 @@ logger.error("Error occurred")
 # LogManager handles configuration setup (called in conftest)
 from src.utils.log_manager import LogManager
 LogManager.setup()
+
+# Logger utility for consistent logging
+from src.utils.logger import get_logger
+test_logger = get_logger(__name__)
+test_logger.info("Custom logger for this module")
+```
+
+### Date Helpers
+```python
+from src.utils.date_helper import DateHelper
+
+# Format dates consistently across tests
+today = DateHelper.get_today()
+future_date = DateHelper.add_days(10)
+formatted_date = DateHelper.format_date(today, "%Y-%m-%d")
+age = DateHelper.calculate_age(birthdate)
+```
+
+### Fake Data Generation
+```python
+from src.utils.fake_data import FakeData
+
+# Generate random test data with Faker
+email = FakeData.generate_email()
+name = FakeData.generate_name()
+phone = FakeData.generate_phone()
+address = FakeData.generate_address()
+company = FakeData.generate_company()
+card_number = FakeData.generate_credit_card()
 ```
 
 ### Custom Exceptions
@@ -364,44 +434,98 @@ def test_flaky_scenario(page, base_url):
     pass
 ```
 
-### Parameterized Test with CSV Data
+### Data-Driven Tests (CSV, JSON, Excel)
 ```python
 import pytest
 from src.utils.data_reader import DataReader
 
 data_reader = DataReader()
-users = data_reader.load_csv_rows('test_data/users_test_data.csv')
 
-@pytest.mark.parametrize("user", users)
-def test_login_with_multiple_users(page, base_url, user):
+# CSV Data-Driven Test
+users_csv = data_reader.load_csv_rows('test_data/users_test_data.csv')
+
+@pytest.mark.parametrize("user", users_csv)
+def test_login_with_csv_users(page, base_url, user):
     """Test login with different users from CSV"""
     from src.pages.login_page import LoginPage
     login_page = LoginPage(page, base_url)
     login_page.navigate()
     login_page.login(user['email'], user['password'])
+
+# JSON Data-Driven Test
+registration_data = data_reader.load_json('test_data/register_user_test_data.json')
+
+@pytest.mark.parametrize("user_data", registration_data)
+def test_register_with_json_data(page, base_url, user_data):
+    """Test user registration with data from JSON"""
+    from src.pages.registration_page import RegistrationPage
+    reg_page = RegistrationPage(page, base_url)
+    reg_page.navigate()
+    reg_page.fill_account_info(
+        user_data['title'],
+        user_data['password'],
+        user_data['day'],
+        user_data['month'],
+        user_data['year']
+    )
+
+# Excel Data-Driven Test
+payment_data = data_reader.load_excel_rows('test_data/payment_test_data.xlsx')
+
+@pytest.mark.parametrize("payment", payment_data)
+def test_payment_with_excel_data(page, base_url, payment):
+    """Test payment with credit card data from Excel"""
+    from src.pages.payment_page import PaymentPage
+    payment_page = PaymentPage(page, base_url)
+    payment_page.fill_card_details(
+        payment['card_number'],
+        payment['cvc'],
+        payment['expiry']
+    )
 ```
 
 ### Hybrid Test (UI + API)
 ```python
-def test_register_user_and_verify(page, base_url):
-    """Test registers user via UI and verifies registration"""
-    from src.pages.registration_page import RegistrationPage
-    from src.pages.login_page import LoginPage
-    from src.pages.home_page import HomePage
+import pytest
+from src.api.api_client import APIClient
+from src.pages.login_page import LoginPage
+from src.pages.home_page import HomePage
+
+def test_create_account_via_api_verify_in_ui(page, base_url, api_client):
+    """Hybrid: Create account via API, verify it logs in via UI"""
+    from src.utils.fake_data import FakeData
     
-    # UI: Register user
-    reg_page = RegistrationPage(page, base_url)
-    reg_page.navigate()
-    reg_page.fill_account_info('Mr', 'password123', '15', '6', '1990')
-    reg_page.fill_address_info('John', 'Doe', '123 Main St', 'India', 'TX', 'Austin', '78701', '1234567890')
-    reg_page.submit_create_account()
+    # Step 1: Create account via API
+    email = FakeData.generate_email()
+    password = "TestPassword123"
     
-    # Verify: Login with same credentials
+    api_response = api_client.post(
+        "/api/createAccount",
+        data={
+            "email": email,
+            "password": password,
+            "first_name": "John",
+            "last_name": "Doe",
+            "address1": "123 Main St",
+            "country": "United States",
+            "state": "Texas",
+            "city": "Austin",
+            "zipcode": "78701",
+            "mobile_number": "5551234567"
+        }
+    )
+    assert api_response.status_code == 201
+    assert api_response.json()["responseCode"] == 201
+    
+    # Step 2: Login via UI with API-created account
     login_page = LoginPage(page, base_url)
     login_page.navigate()
-    login_page.login('john.doe@example.com', 'password123')
+    login_page.login(email, password)
+    
+    # Step 3: Verify logged in state in UI
     home_page = HomePage(page, base_url)
     home_page.expect_logged_in()
+    assert home_page.get_logged_in_username() == "John Doe"
 ```
 
 ---
@@ -458,16 +582,21 @@ allure serve allure-results
 Navigate to **Behaviors** in the Allure sidebar to see the hierarchy:
 
 ```
-API
-├── Account API       (8 tests)
-│   ├── Account Creation
-│   ├── Account CRUD
-│   └── User Detail
-├── Authentication    (6 tests)
-│   ├── Valid Login
-│   └── Invalid Login
-└── Products API      (3 tests)
-    └── Product List
+Tests (50+ total)
+├── API Tests (25+)
+│   ├── Products API (3)
+│   ├── Account API (12 - data-driven)
+│   └── Authentication API (10 - data-driven)
+├── UI Tests (20+)
+│   ├── Authentication (login, signup, registration)
+│   ├── Product Browsing (product list, search, filters)
+│   ├── Shopping (cart, checkout, payment)
+│   ├── User Management (profile, contact, downloads)
+│   └── State Management (cookies, localStorage, auth state)
+└── Hybrid Tests (5+)
+    ├── Account Creation (API → UI verification)
+    ├── Cart Management (UI add → API verification)
+    └── Checkout Workflow (multi-step API/UI combinations)
 ```
 
 Each test shows step-level drill-down with full request method, URL,
@@ -498,36 +627,72 @@ tests/api/
 
 ---
 
-## Configuration
+## Portfolio Project 3 — Hybrid Testing at Scale
 
-### config/config.json
-Main configuration file for environment settings:
+This framework was developed as a comprehensive portfolio project demonstrating SDET mastery:
 
-```json
-{
-  "base_url": "https://automationexercise.com",
-  "timeout": 30000,
-  "headless": true,
-  "browser": "chromium",
-  "slow_mo": 0
-}
+**Architecture Highlights:**
+- Dual-layer testing: UI (Playwright) + API (Requests) with shared fixtures
+- Data-driven test parametrization (CSV, JSON, Excel)
+- Hybrid test scenarios crossing UI/API boundaries
+- Modular utilities for reuse and maintainability
+- Allure reporting with step-level documentation
+
+**Key Deliverables (Days 26-35):**
+- Framework scaffold with POM architecture
+- API test suite with schema validation
+- UI test coverage (8+ test files)
+- Data-driven testing patterns
+- Hybrid test suite (3+ cross-boundary scenarios)
+- Utility layer (config, data, logging, waiting, fake data)
+- Portfolio-ready documentation
+
+See [GitHub Repository](https://github.com/anudeep-6/automation-exercise-framework) for full source code and commit history.
+
+---
+
+## Configuration (Environment-Based)
+
+### .env File
+Configuration is now managed via environment variables using `python-decouple`. Create a `.env` file in the project root:
+
+```bash
+# Application URLs
+BASE_URL=https://automationexercise.com
+BASE_API_URL=https://automationexercise.com/api
+
+# Playwright Settings
+TIMEOUT=30000                    # Default timeout in milliseconds
+HEADLESS=true                    # Run browser in headless mode (true/false)
+BROWSER=chromium                 # Browser engine (chromium/firefox/webkit)
+SLOW_MO=0                        # Slow down interactions by N milliseconds
+
+# Viewport & Display
+VIEWPORT_WIDTH=1280
+VIEWPORT_HEIGHT=720
+
+# Tracing & Debugging
+TRACE=retain-on-failure          # on, off, or retain-on-failure
 ```
 
 **Configuration Options:**
-- `base_url`: Target application URL
-- `timeout`: Default timeout in milliseconds for element interactions
-- `headless`: Run browser in headless mode (true/false)
-- `browser`: Browser engine (chromium/firefox/webkit)
-- `slow_mo`: Slow down interactions by N milliseconds (for debugging)
+- `BASE_URL`: Target application URL
+- `TIMEOUT`: Default timeout in milliseconds for element interactions
+- `HEADLESS`: Run browser in headless mode (true/false)
+- `BROWSER`: Browser engine (chromium/firefox/webkit)
+- `SLOW_MO`: Slow down interactions by N milliseconds (for debugging)
+- `TRACE`: Enable test traces (on/off/retain-on-failure)
 
 ### Accessing Configuration in Tests
 ```python
 from src.utils.config_reader import ConfigReader
 
+# ConfigReader is a singleton that reads from .env via python-decouple
 config = ConfigReader()
-base_url = config.base_url                    # Direct access to base_url
-timeout = config.get('timeout')               # Generic access
-slow_mo = config.get('slow_mo', default=0)   # With default fallback
+base_url = config.base_url         # String from BASE_URL env var
+timeout = config.timeout           # Integer from TIMEOUT env var
+headless = config.headless         # Boolean from HEADLESS env var
+browser = config.browser           # String from BROWSER env var
 ```
 
 ---
@@ -739,6 +904,12 @@ pytest -m "regression or smoke"      # Regression OR smoke tests
 
 ## Directory Reference
 
+### .env / .env.example / .env.staging
+Environment configuration files:
+- `.env` - Local environment variables (git ignored)
+- `.env.example` - Template for environment variables setup
+- `.env.staging` - Staging environment specific variables
+
 ### allure-results/
 Generated Allure test results and reports data. Git-ignored.
 
@@ -749,10 +920,14 @@ Test-generated artifacts (downloads, uploads, etc.). Git-ignored.
 Stores browser session authentication state (`state.json`). Used to reuse login sessions across tests.
 
 ### config/
-- `config.json` - Main configuration file (environment settings, timeouts, etc.)
+Configuration files directory:
+- Note: As of Day 30, `config.json` has been replaced with environment-based configuration via `.env` file
+- See `.env.example` for available environment variables
 
 ### docs/
-Project documentation files and guides.
+Project documentation files and guides:
+- `api_collection_notes.md` - API collection documentation and usage notes
+- `postman_collection.json` - Postman API collection for manual API testing
 
 ### downloads/
 Files downloaded during test execution. Git-ignored.
@@ -768,6 +943,9 @@ Utility scripts:
 Test data files for parameterized and data-driven tests, organized by feature:
 
 - `users_test_data.csv` - User credentials (email, password) for authentication tests
+- `users_test_data.xlsx` - User credentials in Excel format for multi-format testing
+- `auth_test_data.json` - Authentication scenarios (valid/invalid credentials, edge cases)
+- `login_data.json` - Login form test data with various input scenarios
 - `register_user_test_data.json` - User registration form data (name, address, phone, etc.)
 - `product_test_data.json` - Product details (names, prices, categories) for product tests
 - `payment_test_data.json` - Payment card information (number, CVC, expiry) for payment tests
@@ -966,6 +1144,10 @@ Managed via `pyproject.toml`.
 - `pytest-xdist` (>=3.5.0) - Parallel test execution support
 - `allure-pytest` (>=2.13.0) - Allure reporting integration
 - `requests` (>=2.31.0) - HTTP client for API testing
+- `python-decouple` (>=3.8) - Environment variable management and configuration
+- `Faker` (>=20.0.0) - Fake data generation for testing
+- `jsonschema` (>=4.0.0) - JSON schema validation for API responses
+- `openpyxl` (>=3.10) - Excel file reading for data-driven tests
 
 **Development Dependencies** (optional):
 - `flake8` - Code linting
@@ -1025,10 +1207,11 @@ This project is open source and available for educational purposes.
 
 ### [v0.1.0] - April 2026
 
-**Framework Foundation:**
+**Framework Foundation (Days 26-31):**
 - Initial framework setup with POM (Page Object Model) pattern
 - 12 page objects covering full Automation Exercise user flows
 - Allure reporting integration with @allure.step decorators
+- Environment-based configuration via python-decouple and .env
 
 **UI Test Coverage:**
 - Account creation and management tests
@@ -1039,7 +1222,7 @@ This project is open source and available for educational purposes.
 - User registration and profile tests
 
 **API Test Coverage:**
-- 17 API tests across products, account CRUD, and authentication flows
+- 20+ API tests across products, account CRUD, authentication, and data-driven scenarios
 - Custom APIClient wrapping requests.Session with structured logging
 - JSON schema validation layer (jsonschema) with clean AssertionError output
 - Four-layer assertion strategy: HTTP status → schema → responseCode → business logic
@@ -1050,19 +1233,44 @@ This project is open source and available for educational purposes.
 - Trace recording for failed tests
 - Structured test.log generation
 - Browser authentication state persistence (auth/state.json)
+- Hybrid test suite combining UI and API scenarios
+
+**Data-Driven Testing (Day 32):**
+- CSV parametrization with DataReader filtering
+- JSON data-driven tests with list unpacking
+- Excel support (.xlsx) via openpyxl integration
+- Automatic data type conversion (int, float, bool, date)
+- Test count: 25+ data-driven test cases
+
+**Hybrid Testing (Day 33):**
+- Hybrid tests crossing API/UI boundaries (create via API → verify in UI)
+- Combined fixture injection (api_client + page + base_url)
+- Request context sharing (headers, auth tokens, cookies)
+- 8+ hybrid test scenarios covering registration, cart, checkout workflows
 
 **Utilities & Infrastructure:**
-- Configuration management (ConfigReader)
-- Test data handling (DataReader with CSV filtering)
+- Configuration management (ConfigReader with decouple properties)
+- Test data handling (DataReader with CSV, JSON, Excel, filtering)
+- Date and time utilities (DateHelper with age calculation, timezone support)
+- Fake data generation (FakeData via Faker with validation-aware patterns)
 - Custom decorators (@retry, @log_test)
-- Logging management (LogManager)
+- Logging management (LogManager, get_logger factory)
 - Custom exception hierarchy
+- Schema validation with detailed error reporting
+- Multi-format data reading (CSV, JSON, Excel via openpyxl)
+
+**Test Data & Documentation:**
+- Multi-format test data support (CSV, JSON, Excel, filtered views)
+- Authentication test scenarios (valid/invalid/edge cases)
+- Postman API collection for manual testing
+- Comprehensive API documentation and collection notes
+- Portfolio Project 3 architecture (hybrid testing at scale)
 
 **Quality & Documentation:**
 - Comprehensive documentation and examples
 - Pre-commit hooks for code quality
 - Flake8 linting configuration
-- Best practices guide
-- Contributing guidelines
+- Best practices guide with data-driven patterns
+- Contributing guidelines and SDET upskilling roadmap
 
 ---

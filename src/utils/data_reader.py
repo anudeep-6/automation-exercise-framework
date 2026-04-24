@@ -126,3 +126,118 @@ class DataReader:
                 filter_by,
             )
         return rows
+
+    def load_json_rows(
+        self, file_name: str, filter_by: Optional[dict] = None
+    ) -> list[dict]:
+        """Loads JSON rows with optional key-based filtering.
+
+        Mirrors the load_csv_rows() contract so callers can swap data sources
+        without changing filtering logic. The JSON file must contain a
+        top-level list of objects.
+
+        Args:
+            file_name (str): Name of the JSON file to read.
+            filter_by (dict, optional): Key-value pairs to filter rows by.
+                Only rows matching ALL specified pairs are returned.
+                Defaults to None, which returns all rows unfiltered.
+
+        Returns:
+            list[dict]: Filtered list of row dictionaries.
+
+        Raises:
+            TestDataException: If the file does not exist, is malformed, or
+                does not contain a top-level list.
+        """
+        data = self.read_json(file_name)
+        if not isinstance(data, list):
+            logger.error(
+                "[DATA] JSON file %s must contain a top-level list, got %s",
+                file_name,
+                type(data).__name__,
+            )
+            raise TestDataException(file_name, "expected a top-level JSON array")
+
+        rows = data
+        if filter_by:
+            rows = [
+                row
+                for row in rows
+                if all(row.get(k) == v for k, v in filter_by.items())
+            ]
+            logger.info(
+                "[DATA] load_json_rows — %s: %d rows after filter %s",
+                file_name,
+                len(rows),
+                filter_by,
+            )
+        return rows
+
+    def read_excel(self, file_name: str, sheet_name: str = "Sheet1") -> list[dict]:
+        """Reads an Excel file and returns a list of row dictionaries.
+
+        The first row is treated as the header. Each subsequent row becomes
+        a dictionary keyed by column headers. Empty rows are skipped.
+
+        Args:
+            file_name (str): Name of the .xlsx file.
+            sheet_name (str): Name of the sheet to read. Defaults to 'Sheet1'.
+
+        Returns:
+            list[dict]: List of dictionaries, one per data row.
+
+        Raises:
+            TestDataException: If the file is missing, the sheet does not exist,
+                or the file cannot be parsed.
+        """
+        try:
+            from openpyxl import load_workbook
+        except ImportError as err:
+            raise TestDataException(file_name, "openpyxl is not installed") from err
+
+        file_path = self._get_file_path(file_name)
+        try:
+            wb = load_workbook(file_path, read_only=True, data_only=True)
+        except Exception as err:
+            logger.error("[DATA] Failed to open Excel file %s: %s", file_name, err)
+            raise TestDataException(file_name, str(err)) from err
+
+        if sheet_name not in wb.sheetnames:
+            wb.close()
+            logger.error(
+                "[DATA] Sheet '%s' not found in %s. Available: %s",
+                sheet_name,
+                file_name,
+                wb.sheetnames,
+            )
+            raise TestDataException(file_name, f"sheet '{sheet_name}' not found")
+
+        ws = wb[sheet_name]
+        rows_iter = ws.iter_rows(values_only=True)
+        headers = next(rows_iter, None)
+        if not headers:
+            wb.close()
+            logger.warning(
+                "[DATA] Excel sheet '%s' in %s has no header row", sheet_name, file_name
+            )
+            return []
+
+        rows = [
+            dict(zip(headers, row))
+            for row in rows_iter
+            if any(cell is not None for cell in row)
+        ]
+        wb.close()
+
+        if not rows:
+            logger.warning(
+                "[DATA] Excel sheet '%s' in %s has no data rows", sheet_name, file_name
+            )
+        else:
+            logger.info(
+                "[DATA] Excel loaded — %s (sheet: %s): %d rows",
+                file_name,
+                sheet_name,
+                len(rows),
+            )
+        return rows
