@@ -35,7 +35,7 @@ jobs:
         run: playwright install --with-deps chromium
 
       - name: Run test suite
-        run: pytest tests/ -n 2 --headed=false --tb=short -q --alluredir=allure-results
+        run: pytest tests/ -n 2 --tb=short -q --alluredir=allure-results
 
       - name: Upload test artifacts
         if: always()
