@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BASE_URL: "https://automationexercise.com"
-      BASE_API_URL: "https://automationexercise.com/api"
-      TEST_EMAIL: "test_demo_user@gmail.com"
-      TEST_PASSWORD: "testdemo#123"
+      BASE_URL: ${{ secrets.BASE_URL }}
+      BASE_API_URL: ${{ secrets.BASE_API_URL }}
+      TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
       ENVIRONMENT: staging
 
     steps:
