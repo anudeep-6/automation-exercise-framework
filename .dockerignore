@@ -1,0 +1,15 @@
+# .dockerignore
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+artifacts/
+test-results/
+.env
+.env.staging
+*.xlsx
+*.log
+.venv
+venv

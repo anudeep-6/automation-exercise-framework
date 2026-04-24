@@ -1,0 +1,30 @@
+# docker-compose.yml
+version: "3.9"
+
+services:
+  api-tests:
+    build: .
+    image: ecommerce-tests:latest
+    env_file:
+      - .env
+    volumes:
+      - ./artifacts:/app/artifacts
+    command: ["pytest", "tests/api/", "-v", "--tb=short", "--alluredir=artifacts/allure-results"]
+
+  ui-tests:
+    build: .
+    image: ecommerce-tests:latest
+    env_file:
+      - .env
+    volumes:
+      - ./artifacts:/app/artifacts
+    command: ["pytest", "tests/ui/", "-v", "--tb=short", "--headed=false"]
+
+  hybrid-tests:
+    build: .
+    image: ecommerce-tests:latest
+    env_file:
+      - .env
+    volumes:
+      - ./artifacts:/app/artifacts
+    command: ["pytest", "tests/hybrid/", "-v", "--tb=short"]
