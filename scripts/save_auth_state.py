@@ -20,19 +20,21 @@ AUTH_STATE_PATH = os.path.join(os.path.dirname(__file__), "..", "auth", "state.j
 
 
 def get_valid_credentials() -> tuple[str, str]:
-    """Read the first valid credentials row from users.csv.
+    """Read the first valid credentials row from users_test_data.csv.
 
     Returns:
         tuple[str, str]: (username, password)
 
     Raises:
-        SystemExit: If no valid credentials row is found in users.csv.
+        SystemExit: If no valid credentials row is found in users_test_data.csv.
     """
     reader = DataReader()
-    rows = reader.load_csv_rows("users.csv", filter_by={"expected_result": "success"})
+    rows = reader.load_csv_rows(
+        "users_test_data.csv", filter_by={"expected_result": "success"}
+    )
 
     if not rows:
-        print("ERROR: No 'success' rows found in users.csv.")
+        print("ERROR: No 'success' rows found in users_test_data.csv.")
         print("Add at least one registered account row before running this script.")
         sys.exit(1)
 
@@ -42,7 +44,7 @@ def get_valid_credentials() -> tuple[str, str]:
 
 def save_auth_state() -> None:
     """
-    Launch a browser, log in with credentials from users.csv, and save
+    Launch a browser, log in with credentials from users_test_data.csv, and save
     the resulting storage state (cookies + localStorage) to auth/state.json.
     """
     config = ConfigReader()
