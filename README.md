@@ -3,6 +3,8 @@
 Automation framework for [Automation Exercise](https://automationexercise.com) 
 built with Python, Playwright, and pytest.
 
+![Test Suite](https://github.com/anudeep-6/automation-exercise-framework/actions/workflows/tests.yml/badge.svg)
+
 ## Project Description
 
 A robust test automation framework for the Automation Exercise website, implementing both UI and API testing capabilities. The framework follows the Page Object Model (POM) design pattern and supports hybrid testing scenarios that combine UI and API validation.
