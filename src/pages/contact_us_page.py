@@ -117,7 +117,7 @@ class ContactUsPage(BasePage):
         dialog_message = self.accept_dialog()
         self.click(self.SUBMIT_BUTTON)
         # give the dialog a moment to fire
-        self.page.wait_for_timeout(500)
+        self.page.wait_for_timeout(1500)
         if not dialog_message:
             raise DialogException("click submit button on contact form")
         return dialog_message[0]
