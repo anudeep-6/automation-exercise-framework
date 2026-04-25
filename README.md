@@ -47,23 +47,40 @@ A robust test automation framework for the Automation Exercise website, implemen
 automation-exercise-framework/
 │
 ├── .vscode/                    # VS Code workspace settings
+│   └── settings.json           # VS Code workspace configuration
+│
+├── .github/                    # GitHub repository configuration
+│   └── workflows/
+│       └── tests.yml           # GitHub Actions CI/CD pipeline
 │
 ├── .env                        # Environment variables (git ignored)
 ├── .env.example                # Example environment variables template
 ├── .env.staging                # Staging environment variables
 │
+├── .dockerignore               # Docker build ignore rules
+├── .flake8                     # Flake8 linting configuration
+├── .gitignore                  # Git ignore rules
+├── .pre-commit-config.yaml     # Pre-commit hooks configuration
+├── .git/                       # Git repository metadata (git ignored)
+│
+├── .pytest_cache/              # Pytest cache (git ignored)
+│
 ├── allure-results/             # Allure test report data (git ignored)
 │
-├── artifacts/                  # Test artifacts and files (git ignored)
+├── artifacts/                  # Test artifacts per run (git ignored)
+│   ├── allure-results/         # Allure data from each test run
+│   └── {test_name}_{browser}_{timestamp}/  # Per-test artifact folder
+│       ├── test.log            # Test execution log
+│       ├── screenshot.png       # Screenshot on failure
+│       └── trace.zip           # Playwright trace on failure
 │
 ├── auth/                       # Browser authentication state
 │   └── state.json              # Saved browser auth state for reuse
 │
-├── .env                        # Environment variables (git ignored)
-├── .env.example                # Example environment variables template
-│
 ├── docs/                       # Project documentation
 │   ├── api_collection_notes.md # Postman collection notes and API documentation
+│   ├── ci_cd_notes.md          # GitHub Actions and CI/CD documentation
+│   ├── docker_notes.md         # Docker and containerization guides
 │   └── postman_collection.json # Postman API collection for manual testing
 │
 ├── downloads/                  # Downloaded files during tests (git ignored)
@@ -143,20 +160,18 @@ automation-exercise-framework/
 │   │   │   └── product_schema.py      # PRODUCT_LIST_SCHEMA
 │   │   ├── test_products_api.py       # 3 tests — GET /api/productsList
 │   │   ├── test_account_api.py        # 8 tests — CRUD endpoints
-│   │   └── test_auth_api.py           # 6 tests — verifyLogin + getUserDetailByEmail
+│   │   └── test_auth_api.py           # 4 tests — verifyLogin + getUserDetailByEmail
 │   │
 │   └── hybrid/                 # Combined UI + API tests
 │       ├── __init__.py
 │       ├── conftest.py         # Hybrid test specific fixtures
-│       ├── test_hybrid_account.py      # Account creation via API → verify in UI
-│       ├── test_hybrid_cart.py         # Add to cart via UI → verify via API
-│       └── test_hybrid_checkout.py     # Multi-step: API setup → UI purchase → API verification
+│       └── test_hybrid_account.py      # Account creation via API → verify in UI
 │
 ├── venv/                       # Virtual environment (git ignored)
 │
-├── .flake8                     # Flake8 linting configuration
-├── .gitignore                  # Git ignore rules
-├── .pre-commit-config.yaml     # Pre-commit hooks configuration
+├── docker-compose.yml          # Docker Compose configuration for multi-service testing
+├── Dockerfile                  # Docker image definition for containerized test execution
+├── Jenkinsfile                 # Jenkins CI/CD pipeline configuration (alternative to GitHub Actions)
 ├── pyproject.toml              # Project metadata and dependencies
 ├── README.md                   # Project documentation (this file)
 └── __init__.py                 # Package initializer
@@ -209,7 +224,7 @@ automation-exercise-framework/
 ### Run all tests
 ```bash
 pytest                          # Run all tests
-pytest --co -q                  # Count tests: 50+ total (UI, API, hybrid, data-driven)
+pytest --co -q                  # Count tests: 38 total (UI, API, hybrid, data-driven)
 ```
 
 ### Run specific test suites
@@ -277,6 +292,240 @@ pytest -m "not slow"                # Skip slow tests
 pytest --pdb                        # Drop into debugger on failures
 pytest -s                           # Show print statements and logging
 ```
+
+---
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflow
+
+The project uses **GitHub Actions** to automatically run tests on every push and pull request to `main`.
+
+**Badge:**
+```markdown
+![Test Suite](https://github.com/anudeep-6/automation-exercise-framework/actions/workflows/tests.yml/badge.svg)
+```
+
+**Workflow File:** `.github/workflows/tests.yml`
+
+### Pipeline Stages
+
+The GitHub Actions pipeline executes the following stages sequentially:
+
+| Stage | Purpose | Details |
+|-------|---------|---------|
+| **Checkout** | Clone repository | Fetches the latest code from branch |
+| **Setup Python 3.12** | Configure Python environment | Uses actions/setup-python with pip caching |
+| **Install Dependencies** | Install project & dependencies | Runs `pip install .` from pyproject.toml |
+| **Install Playwright Browsers** | Set up browser binaries | `playwright install --with-deps chromium` |
+| **Generate Auth State** | Pre-authenticate for tests | Runs `scripts/save_auth_state.py` (faster login during tests) |
+| **Run Test Suite** | Execute all tests in parallel | `pytest tests/ -n 2 --alluredir=allure-results` (2 workers) |
+| **Install Allure CLI** | Download Allure reporting tool | Required for HTML report generation |
+| **Generate Allure Report** | Create test report HTML | `allure generate allure-results --clean -o allure-report` |
+| **Upload Artifacts** | Store test results & reports | Artifacts retained for 7 days |
+
+### Key Features
+
+- **Parallel Execution:** Tests run on 2 workers to speed up the pipeline
+- **Credentials via Secrets:** `BASE_URL`, `BASE_API_URL`, `TEST_EMAIL`, `TEST_PASSWORD` loaded from GitHub Secrets (not committed)
+- **Environment Variable:** `ENVIRONMENT=staging` for test configuration
+- **Allure Integration:** HTML reports generated and uploaded as artifacts
+- **Artifact Retention:** Test results, logs, traces, and reports retained for 7 days
+
+### View Test Results
+
+After a workflow run completes:
+
+1. Go to **Actions** tab in the GitHub repository
+2. Click on the workflow run
+3. Scroll to **Artifacts** section
+4. Download:
+   - `allure-results` — Raw test data (JSON)
+   - `allure-report` — Interactive HTML report
+   - `test-artifacts` — Screenshots, logs, downloaded files
+
+### Secrets Configuration
+
+Set up GitHub Secrets for sensitive data (not in `.env` files):
+
+```
+BASE_URL                → https://automationexercise.com
+BASE_API_URL            → https://automationexercise.com/api
+TEST_EMAIL              → test@example.com
+TEST_PASSWORD           → SecurePassword123
+```
+
+**Repository Settings → Secrets and variables → Actions**
+
+---
+
+## Docker & Containerization
+
+### Why Docker?
+
+Run tests in an isolated, consistent environment without local Playwright browser setup.
+
+### Build Docker Image
+
+```bash
+# Build image with tag 'ecommerce-tests:latest'
+docker build -t ecommerce-tests:latest .
+
+# Build with custom tag
+docker build -t ecommerce-tests:v1.0.0 .
+```
+
+**Dockerfile** provides:
+- Python 3.12 slim base image
+- System dependencies for Playwright (curl, etc.)
+- Playwright + Chromium browser installation
+- All Python dependencies from `pyproject.toml`
+
+### Run Tests in Docker
+
+```bash
+# Run API tests with environment variables
+docker run --rm \
+  -e BASE_URL="https://automationexercise.com" \
+  -e BASE_API_URL="https://automationexercise.com/api" \
+  -e TIMEOUT="30000" \
+  -e HEADLESS="true" \
+  ecommerce-tests:latest
+
+# Run with artifact output to host
+docker run --rm \
+  -e BASE_URL="https://automationexercise.com" \
+  -e HEADLESS="false" \
+  -v /path/to/artifacts:/app/artifacts \
+  ecommerce-tests:latest pytest tests/api/ -v --alluredir=artifacts/allure-results
+
+# Run UI tests (headed mode for debugging)
+docker run --rm \
+  -e HEADLESS="false" \
+  -e BASE_URL="https://automationexercise.com" \
+  ecommerce-tests:latest pytest tests/ui/ -v --tb=short
+```
+
+### Docker Compose (Multi-Service Testing)
+
+**docker-compose.yml** enables running different test suites in parallel containers:
+
+```bash
+# Run all test services (API, UI, Hybrid)
+docker-compose up
+
+# Run specific service
+docker-compose up api-tests
+docker-compose up ui-tests
+docker-compose up hybrid-tests
+
+# Run and remove containers after completion
+docker-compose up --abort-on-container-exit
+docker-compose down
+```
+
+**Services:**
+- `api-tests` — API test suite (fastest, no display needed)
+- `ui-tests` — UI test suite (requires display, runs headless by default)
+- `hybrid-tests` — Hybrid test suite (UI + API combined)
+
+All services:
+- Share the same image build
+- Load `.env` file for configuration
+- Mount `./artifacts` volume for output files
+- Generate Allure reports in `artifacts/allure-results`
+
+### Environment Variables in Docker
+
+Pass environment variables to containers:
+
+```bash
+# Via -e flag (command line)
+docker run -e BASE_URL="..." -e TIMEOUT="30000" ecommerce-tests:latest
+
+# Via --env-file flag (from .env file)
+docker run --env-file .env ecommerce-tests:latest
+
+# Via docker-compose.yml (env_file section)
+services:
+  api-tests:
+    env_file:
+      - .env
+```
+
+### View Artifacts from Docker
+
+```bash
+# Copy artifacts from container to host
+docker cp <container_id>:/app/artifacts ./artifacts
+
+# Or mount volume during run (recommended)
+docker run -v /path/to/local/artifacts:/app/artifacts ecommerce-tests:latest
+```
+
+---
+
+## Run Locally vs CI/CD
+
+### Comparison: Local Development vs GitHub Actions
+
+| Aspect | **Local Development** | **GitHub Actions (CI)** |
+|--------|----------------------|------------------------|
+| **Environment** | Windows/macOS/Linux with Python 3.12 installed | Ubuntu Latest container |
+| **Dependencies** | Install: `pip install -e .` + `playwright install` | Auto-installed in workflow |
+| **Browser Setup** | Playwright browsers already installed locally | Installed in workflow step |
+| **Configuration** | `.env` file in project root | GitHub Secrets (encrypted) |
+| **Authentication** | `scripts/save_auth_state.py` runs once, reused | Runs in every workflow via `save_auth_state.py` |
+| **Test Execution** | Single-threaded or parallel (`pytest -n auto`) | Parallel on 2 workers (`pytest -n 2`) |
+| **Test Suites** | UI/API/Hybrid all in one run | All suites in single run, combined reporting |
+| **Reporting** | Allure served locally: `allure serve allure-results` | Uploaded as artifact (7 day retention) |
+| **Debugging** | Direct access to logs, traces, screenshots | Download artifacts from Actions tab |
+| **Cost** | Free (local machine resources) | GitHub Actions free tier (generous limits) |
+| **Artifacts** | Saved locally in `./artifacts` and `./allure-results` | 7-day retention in GitHub artifacts |
+
+### Quick Command Reference
+
+**Local Execution:**
+```bash
+# Full setup
+python -m venv venv
+source venv/bin/activate              # On Windows: venv\Scripts\activate
+pip install -e .
+playwright install
+python scripts/save_auth_state.py
+
+# Run tests
+pytest tests/ -v --alluredir=allure-results
+
+# View report
+allure serve allure-results
+```
+
+**CI/CD Execution (Docker):**
+```bash
+# Build and run in isolated container
+docker build -t ecommerce-tests:latest .
+docker run --env-file .env -v ./artifacts:/app/artifacts ecommerce-tests:latest \
+  pytest tests/ -v --alluredir=artifacts/allure-results
+
+# View results
+# Download allure-results/ from container or via docker-compose logs
+```
+
+### When to Use Each
+
+**Use Local Development When:**
+- Writing and debugging tests
+- Experimenting with new features
+- Quick feedback loop needed
+- Browser interaction debugging (headed mode)
+
+**Use CI/CD When:**
+- Merging code to `main` branch
+- Validating code quality across commits
+- Running full regression suite
+- Generating official test reports
+- Running on every PR for code review
 
 ---
 
@@ -548,7 +797,7 @@ logging and Allure step integration.
 | `test_account_api.py` | `POST /api/createAccount` `GET /api/getUserDetailByEmail` `PUT /api/updateAccount` `DELETE /api/deleteAccount` | Full CRUD lifecycle — create → read → update → verify → delete. Negative: duplicate account (409), delete non-existent account |
 | `test_auth_api.py` | `POST /api/verifyLogin` `GET /api/getUserDetailByEmail` | Valid credentials, invalid password, invalid email, missing fields |
 
-**Total: 17 API test cases** across products, account CRUD, and authentication flows.
+**Total: 15 API test cases** across products, account CRUD, and authentication flows.
 
 ### Assertion Strategy
 
@@ -584,21 +833,19 @@ allure serve allure-results
 Navigate to **Behaviors** in the Allure sidebar to see the hierarchy:
 
 ```
-Tests (50+ total)
-├── API Tests (25+)
+Tests (38 total)
+├── API Tests (15)
 │   ├── Products API (3)
-│   ├── Account API (12 - data-driven)
-│   └── Authentication API (10 - data-driven)
-├── UI Tests (20+)
+│   ├── Account API (8)
+│   └── Authentication API (4)
+├── UI Tests (21)
 │   ├── Authentication (login, signup, registration)
 │   ├── Product Browsing (product list, search, filters)
 │   ├── Shopping (cart, checkout, payment)
 │   ├── User Management (profile, contact, downloads)
 │   └── State Management (cookies, localStorage, auth state)
-└── Hybrid Tests (5+)
-    ├── Account Creation (API → UI verification)
-    ├── Cart Management (UI add → API verification)
-    └── Checkout Workflow (multi-step API/UI combinations)
+└── Hybrid Tests (2)
+    └── Account Creation (API → UI verification)
 ```
 
 Each test shows step-level drill-down with full request method, URL,
@@ -913,10 +1160,18 @@ Environment configuration files:
 - `.env.staging` - Staging environment specific variables
 
 ### allure-results/
-Generated Allure test results and reports data. Git-ignored.
+Standard Allure output directory generated by running `pytest --alluredir=allure-results`. 
+Contains JSON result files read by `allure serve` to generate the HTML report. 
+Also uploaded as a CI artifact in GitHub Actions workflow. Git-ignored.
 
 ### artifacts/
-Test-generated artifacts (downloads, uploads, etc.). Git-ignored.
+Per-test artifact storage managed by the `per_test_artifacts` autouse fixture.
+Contains timestamped folders per test run (e.g., `test_name_browser_timestamp/`) with:
+- `test.log` — Test execution log
+- `screenshot.png` — Screenshot on failure
+- `trace.zip` — Playwright trace on failure
+Also contains an `allure-results/` subfolder with Allure attachments linked to individual tests.
+Git-ignored.
 
 ### auth/
 Stores browser session authentication state (`state.json`). Used to reuse login sessions across tests.
@@ -1224,7 +1479,7 @@ This project is open source and available for educational purposes.
 - User registration and profile tests
 
 **API Test Coverage:**
-- 20+ API tests across products, account CRUD, authentication, and data-driven scenarios
+- 15 API tests across products, account CRUD, and authentication flows
 - Custom APIClient wrapping requests.Session with structured logging
 - JSON schema validation layer (jsonschema) with clean AssertionError output
 - Four-layer assertion strategy: HTTP status → schema → responseCode → business logic
@@ -1242,13 +1497,13 @@ This project is open source and available for educational purposes.
 - JSON data-driven tests with list unpacking
 - Excel support (.xlsx) via openpyxl integration
 - Automatic data type conversion (int, float, bool, date)
-- Test count: 25+ data-driven test cases
+- Multiple parametrized tests across API and UI suites
 
 **Hybrid Testing (Day 33):**
 - Hybrid tests crossing API/UI boundaries (create via API → verify in UI)
 - Combined fixture injection (api_client + page + base_url)
 - Request context sharing (headers, auth tokens, cookies)
-- 8+ hybrid test scenarios covering registration, cart, checkout workflows
+- 2 hybrid test scenarios covering account workflows
 
 **Utilities & Infrastructure:**
 - Configuration management (ConfigReader with decouple properties)
